@@ -17,9 +17,10 @@ interface NavigationProps {
   currentView: string;
   onViewChange: (view: string) => void;
   onAdminClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
-export const Navigation = ({ currentView, onViewChange, onAdminClick }: NavigationProps) => {
+export const Navigation = ({ currentView, onViewChange, onAdminClick, onSettingsClick }: NavigationProps) => {
   const { user, logout } = useAuth();
   
   const navItems = [
@@ -82,7 +83,12 @@ export const Navigation = ({ currentView, onViewChange, onAdminClick }: Navigati
                 3
               </Badge>
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant={currentView === 'settings' ? 'forest' : 'ghost'} 
+              size="sm"
+              onClick={onSettingsClick}
+              title="Settings"
+            >
               <Settings className="h-4 w-4" />
             </Button>
             {user ? (

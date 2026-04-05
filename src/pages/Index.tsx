@@ -7,14 +7,15 @@ import { UploadInterface } from '@/components/UploadInterface';
 import { AIImageProcessor } from '@/components/AIImageProcessor';
 import LoginPage from './Login';
 import AdminDashboard from './AdminDashboard';
+import SettingsPage from './Settings';
 
 const Index = () => {
   const { isAuthenticated } = useAuth();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin' | 'settings'>('dashboard');
 
   const handleViewChange = (view: string) => {
-    if (['dashboard', 'map', 'upload', 'analytics', 'ai-processor', 'login', 'admin'].includes(view)) {
-      setCurrentView(view as 'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin');
+    if (['dashboard', 'map', 'upload', 'analytics', 'ai-processor', 'login', 'admin', 'settings'].includes(view)) {
+      setCurrentView(view as 'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin' | 'settings');
     }
   };
 
@@ -34,6 +35,15 @@ const Index = () => {
         onLogout={() => {
           setCurrentView('dashboard');
         }} 
+      />
+    );
+  }
+
+  // If user is on settings page
+  if (currentView === 'settings') {
+    return (
+      <SettingsPage 
+        onBack={() => setCurrentView('dashboard')} 
       />
     );
   }
@@ -72,17 +82,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {currentView === 'map' ? (
-        renderCurrentView()
-      ) : (
-        <div>
-          <Navigation currentView={currentView} onViewChange={handleViewChange} onAdminClick={() => setCurrentView('admin')} />
-          <div className="container mx-auto p-6">
-            {renderCurrentView()}
+        <div className="h-screen flex flex-col">
+          <Navigation 
+            currentView={currentView} 
+            onViewChange={handleViewChange} 
+            onAdminClick={() => setCurrentView('admin')}
+            onSettingsClick={() => setCurrentView('settings')}
+          />
+          <div className="flex-1">
+            <GISMap />
           </div>
         </div>
-      )}
-    </div>
-  );
+      ) : (
 };
 
 export default Index;
