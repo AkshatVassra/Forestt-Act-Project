@@ -1,25 +1,49 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Dashboard } from '@/components/Dashboard';
 import { GISMap } from '@/components/GISMap';
 import { UploadInterface } from '@/components/UploadInterface';
 import { AIImageProcessor } from '@/components/AIImageProcessor';
+import LoginPage from './Login';
+import AdminDashboard from './AdminDashboard';
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor'>('dashboard');
+  const { isAuthenticated } = useAuth();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin'>('dashboard');
 
   const handleViewChange = (view: string) => {
-    if (view === 'dashboard' || view === 'map' || view === 'upload' || view === 'analytics' || view === 'ai-processor') {
-      setCurrentView(view);
+    if (['dashboard', 'map', 'upload', 'analytics', 'ai-processor', 'login', 'admin'].includes(view)) {
+      setCurrentView(view as 'dashboard' | 'map' | 'upload' | 'analytics' | 'ai-processor' | 'login' | 'admin');
     }
   };
+
+  // If user goes to login page
+  if (currentView === 'login') {
+    return (
+      <LoginPage 
+        onLoginSuccess={() => setCurrentView('dashboard')} 
+      />
+    );
+  }
+
+  // If user is on admin dashboard
+  if (currentView === 'admin') {
+    return (
+      <AdminDashboard 
+        onLogout={() => {
+          setCurrentView('dashboard');
+        }} 
+      />
+    );
+  }
 
   const renderCurrentView = () => {
     switch (currentView) {
       case 'map':
         return (
           <div className="h-screen flex flex-col">
-            <Navigation currentView={currentView} onViewChange={handleViewChange} />
+            <Navigation currentView={currentView} onViewChange={handleViewChange} onAdminClick={() => setCurrentView('admin')} />
             <div className="flex-1">
               <GISMap />
             </div>
@@ -51,7 +75,7 @@ const Index = () => {
         renderCurrentView()
       ) : (
         <div>
-          <Navigation currentView={currentView} onViewChange={handleViewChange} />
+          <Navigation currentView={currentView} onViewChange={handleViewChange} onAdminClick={() => setCurrentView('admin')} />
           <div className="container mx-auto p-6">
             {renderCurrentView()}
           </div>

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Home, 
   Map, 
@@ -8,15 +9,19 @@ import {
   Settings, 
   Bell,
   User,
-  Zap
+  Zap,
+  LogOut
 } from 'lucide-react';
 
 interface NavigationProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  onAdminClick?: () => void;
 }
 
-export const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
+export const Navigation = ({ currentView, onViewChange, onAdminClick }: NavigationProps) => {
+  const { user, logout } = useAuth();
+  
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'map', label: 'WebGIS Map', icon: Map },
@@ -24,6 +29,16 @@ export const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
     { id: 'ai-processor', label: 'AI Processor', icon: Zap },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
+
+  const handleAdminClick = () => {
+    if (user && user.role === 'admin') {
+      onAdminClick?.();
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <nav className="bg-card border-b border-border shadow-panel sticky top-0 z-50">
@@ -70,10 +85,38 @@ export const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
             <Button variant="ghost" size="sm">
               <Settings className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm">
-              <User className="h-4 w-4 mr-2" />
-              <span className="hidden md:inline">Admin</span>
-            </Button>
+            {user ? (
+              <>
+                {user.role === 'admin' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAdminClick}
+                    className="bg-green-50 border-green-200 hover:bg-green-100"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    <span className="hidden md:inline">Admin</span>
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleLogout}
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onViewChange('login')}
+              >
+                <User className="h-4 w-4 mr-2" />
+                <span className="hidden md:inline">Login</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
