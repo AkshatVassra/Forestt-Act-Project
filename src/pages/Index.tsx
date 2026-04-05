@@ -94,6 +94,20 @@ const Index = () => {
           </div>
         </div>
       ) : (
+        <div>
+          <Navigation 
+            currentView={currentView} 
+            onViewChange={handleViewChange} 
+            onAdminClick={() => setCurrentView('admin')}
+            onSettingsClick={() => setCurrentView('settings')}
+          />
+          <div className="container mx-auto p-6">
+            {renderCurrentView()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default Index;
