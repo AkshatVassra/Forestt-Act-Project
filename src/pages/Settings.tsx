@@ -249,12 +249,21 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   onChange={(e) => setLanguage(e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600"
                 >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="pt">Portuguese</option>
-                  <option value="hi">Hindi</option>
+                  <optgroup label="International">
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="pt">Portuguese</option>
+                  </optgroup>
+                  <optgroup label="Indian Languages">
+                    <option value="hi">Hindi</option>
+                    <option value="mr">Marathi</option>
+                    <option value="ta">Tamil</option>
+                    <option value="te">Telugu</option>
+                    <option value="od">Odia</option>
+                    <option value="bh">Bhojpuri</option>
+                  </optgroup>
                 </select>
               </div>
             </Card>
