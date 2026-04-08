@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,33 +15,106 @@ import {
   Moon,
   Sun,
   Globe,
+  Check,
 } from 'lucide-react';
 
 interface SettingsPageProps {
   onBack: () => void;
 }
 
-export default function SettingsPage({ onBack }: SettingsPageProps) {
-  const { user } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState({
+interface SettingsState {
+  darkMode: boolean;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  mapSettings: {
+    defaultZoom: number;
+    showLabels: boolean;
+    showGrid: boolean;
+  };
+  language: string;
+  password: string;
+  twoFactorEnabled: boolean;
+  userName: string;
+}
+
+const DEFAULT_SETTINGS: SettingsState = {
+  darkMode: false,
+  notifications: {
     email: true,
     push: true,
     sms: false,
-  });
-  const [mapSettings, setMapSettings] = useState({
+  },
+  mapSettings: {
     defaultZoom: 5,
     showLabels: true,
     showGrid: false,
-  });
-  const [language, setLanguage] = useState('en');
+  },
+  language: 'en',
+  password: '',
+  twoFactorEnabled: false,
+  userName: 'User',
+};
+
+export default function SettingsPage({ onBack }: SettingsPageProps) {
+  const { user } = useAuth();
+  const [activeSection, setActiveSection] = useState<'account' | 'notifications' | 'map' | 'appearance' | 'language' | 'security'>('account');
+  const [showPassword, setShowPassword] = useState(false);
+  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [saveStatus, setSaveStatus] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('appSettings');
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('[v0] Failed to load settings:', e);
+      }
+    }
+  }, []);
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.darkMode]);
+
+  const handleSettingChange = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleNestedChange = (parent: 'notifications' | 'mapSettings', key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [parent]: { ...prev[parent], [key]: value }
+    }));
+    setHasChanges(true);
+  };
 
   const handleSaveSettings = () => {
+    localStorage.setItem('appSettings', JSON.stringify(settings));
     setSaveStatus('Settings saved successfully!');
+    setHasChanges(false);
     setTimeout(() => setSaveStatus(''), 3000);
   };
+
+  const sidebarItems = [
+    { icon: User, label: 'Account', id: 'account' as const },
+    { icon: Bell, label: 'Notifications', id: 'notifications' as const },
+    { icon: MapPin, label: 'Map Settings', id: 'map' as const },
+    { icon: Sun, label: 'Appearance', id: 'appearance' as const },
+    { icon: Globe, label: 'Language', id: 'language' as const },
+    { icon: Lock, label: 'Privacy & Security', id: 'security' as const },
+  ];
 
   return (
     <div className="min-h-screen bg-background py-8">
@@ -72,25 +145,24 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
+            <div className="bg-card rounded-lg border border-border overflow-hidden sticky top-24">
               <nav className="flex flex-col">
-                {[
-                  { icon: User, label: 'Account', id: 'account' },
-                  { icon: Bell, label: 'Notifications', id: 'notifications' },
-                  { icon: MapPin, label: 'Map Settings', id: 'map' },
-                  { icon: Sun, label: 'Appearance', id: 'appearance' },
-                  { icon: Globe, label: 'Language', id: 'language' },
-                  { icon: Lock, label: 'Privacy & Security', id: 'security' },
-                ].map((item) => {
+                {sidebarItems.map((item) => {
                   const Icon = item.icon;
+                  const isActive = activeSection === item.id;
                   return (
                     <button
                       key={item.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors border-b border-border last:border-b-0 text-left"
+                      onClick={() => setActiveSection(item.id)}
+                      className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-border last:border-b-0 text-left ${
+                        isActive 
+                          ? 'bg-forest-50 text-forest-700 border-l-4 border-l-forest-600' 
+                          : 'hover:bg-muted text-foreground'
+                      }`}
                     >
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-forest-600' : 'text-muted-foreground'}`} />
+                      <span className="text-sm font-medium flex-1">{item.label}</span>
+                      {isActive && <ChevronRight className="h-4 w-4 text-forest-600" />}
                     </button>
                   );
                 })}
@@ -101,218 +173,259 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
             {/* Account Settings */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <User className="h-5 w-5 text-forest-600" />
-                <h2 className="text-xl font-semibold">Account Settings</h2>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email Address</label>
-                  <input
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm cursor-not-allowed"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Your email address cannot be changed</p>
+            {activeSection === 'account' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  <User className="h-5 w-5 text-forest-600" />
+                  <h2 className="text-xl font-semibold">Account Settings</h2>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    defaultValue={user?.name || 'User'}
-                    className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm cursor-not-allowed"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Your email address cannot be changed</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      value={settings.userName}
+                      onChange={(e) => handleSettingChange('userName', e.target.value)}
+                      className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Role</label>
+                    <input
+                      type="text"
+                      value={user?.role || 'user'}
+                      disabled
+                      className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm cursor-not-allowed capitalize"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Role</label>
-                  <input
-                    type="text"
-                    value={user?.role || 'user'}
-                    disabled
-                    className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm cursor-not-allowed capitalize"
-                  />
-                </div>
-              </div>
-            </Card>
+              </Card>
+            )}
 
             {/* Notification Settings */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <Bell className="h-5 w-5 text-forest-600" />
-                <h2 className="text-xl font-semibold">Notification Preferences</h2>
-              </div>
-              <div className="space-y-4">
-                {Object.entries(notifications).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div>
-                      <p className="font-medium capitalize">{key} Notifications</p>
-                      <p className="text-sm text-muted-foreground">
-                        {key === 'email' && 'Receive updates via email'}
-                        {key === 'push' && 'Receive push notifications'}
-                        {key === 'sms' && 'Receive SMS alerts'}
-                      </p>
+            {activeSection === 'notifications' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  <Bell className="h-5 w-5 text-forest-600" />
+                  <h2 className="text-xl font-semibold">Notification Preferences</h2>
+                </div>
+                <div className="space-y-4">
+                  {Object.entries(settings.notifications).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between p-4 bg-muted rounded-lg border border-border hover:border-forest-300 transition">
+                      <div>
+                        <p className="font-medium capitalize">{key} Notifications</p>
+                        <p className="text-sm text-muted-foreground">
+                          {key === 'email' && 'Receive updates via email'}
+                          {key === 'push' && 'Receive push notifications'}
+                          {key === 'sms' && 'Receive SMS alerts'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleNestedChange('notifications', key, !value)}
+                        className={`relative w-14 h-8 rounded-full transition-all ${
+                          value ? 'bg-forest-600' : 'bg-muted-foreground'
+                        } flex items-center ${value ? 'justify-end' : 'justify-start'} p-1`}
+                        aria-label={`Toggle ${key} notifications`}
+                      >
+                        <div className="w-5 h-5 bg-white rounded-full shadow-md"></div>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, [key]: !value })}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        value ? 'bg-forest-600' : 'bg-muted-foreground'
-                      } flex items-center ${value ? 'justify-end' : 'justify-start'} p-1`}
-                    >
-                      <div className="w-4 h-4 bg-white rounded-full"></div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Map Settings */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <MapPin className="h-5 w-5 text-forest-600" />
-                <h2 className="text-xl font-semibold">Map Settings</h2>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Default Zoom Level: {mapSettings.defaultZoom}</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    value={mapSettings.defaultZoom}
-                    onChange={(e) => setMapSettings({ ...mapSettings, defaultZoom: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer"
-                  />
+            {activeSection === 'map' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  <MapPin className="h-5 w-5 text-forest-600" />
+                  <h2 className="text-xl font-semibold">Map Settings</h2>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <p className="font-medium">Show Map Labels</p>
-                  <button
-                    onClick={() => setMapSettings({ ...mapSettings, showLabels: !mapSettings.showLabels })}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      mapSettings.showLabels ? 'bg-forest-600' : 'bg-muted-foreground'
-                    } flex items-center ${mapSettings.showLabels ? 'justify-end' : 'justify-start'} p-1`}
-                  >
-                    <div className="w-4 h-4 bg-white rounded-full"></div>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <p className="font-medium">Show Grid</p>
-                  <button
-                    onClick={() => setMapSettings({ ...mapSettings, showGrid: !mapSettings.showGrid })}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      mapSettings.showGrid ? 'bg-forest-600' : 'bg-muted-foreground'
-                    } flex items-center ${mapSettings.showGrid ? 'justify-end' : 'justify-start'} p-1`}
-                  >
-                    <div className="w-4 h-4 bg-white rounded-full"></div>
-                  </button>
-                </div>
-              </div>
-            </Card>
-
-            {/* Appearance Settings */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                {darkMode ? (
-                  <Moon className="h-5 w-5 text-forest-600" />
-                ) : (
-                  <Sun className="h-5 w-5 text-forest-600" />
-                )}
-                <h2 className="text-xl font-semibold">Appearance</h2>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div>
-                  <p className="font-medium">Dark Mode</p>
-                  <p className="text-sm text-muted-foreground">Enable dark theme</p>
-                </div>
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`w-12 h-6 rounded-full transition-colors ${
-                    darkMode ? 'bg-forest-600' : 'bg-muted-foreground'
-                  } flex items-center ${darkMode ? 'justify-end' : 'justify-start'} p-1`}
-                >
-                  <div className="w-4 h-4 bg-white rounded-full"></div>
-                </button>
-              </div>
-            </Card>
-
-            {/* Language Settings */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <Globe className="h-5 w-5 text-forest-600" />
-                <h2 className="text-xl font-semibold">Language</h2>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Select Language</label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600"
-                >
-                  <optgroup label="International">
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="pt">Portuguese</option>
-                  </optgroup>
-                  <optgroup label="Indian Languages">
-                    <option value="hi">Hindi</option>
-                    <option value="mr">Marathi</option>
-                    <option value="ta">Tamil</option>
-                    <option value="te">Telugu</option>
-                    <option value="od">Odia</option>
-                    <option value="bh">Bhojpuri</option>
-                  </optgroup>
-                </select>
-              </div>
-            </Card>
-
-            {/* Privacy & Security */}
-            <Card className="p-6 border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <Lock className="h-5 w-5 text-forest-600" />
-                <h2 className="text-xl font-semibold">Privacy & Security</h2>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Change Password</label>
-                  <div className="relative">
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium">Default Zoom Level</label>
+                      <span className="text-lg font-bold text-forest-600">{settings.mapSettings.defaultZoom}</span>
+                    </div>
                     <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter new password"
-                      className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 pr-10"
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={settings.mapSettings.defaultZoom}
+                      onChange={(e) => handleNestedChange('mapSettings', 'defaultZoom', parseInt(e.target.value))}
+                      className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-forest-600"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">Current zoom: {settings.mapSettings.defaultZoom}x</p>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg border border-border hover:border-forest-300 transition">
+                    <div>
+                      <p className="font-medium">Show Map Labels</p>
+                      <p className="text-sm text-muted-foreground">Display place names and boundaries</p>
+                    </div>
                     <button
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleNestedChange('mapSettings', 'showLabels', !settings.mapSettings.showLabels)}
+                      className={`relative w-14 h-8 rounded-full transition-all ${
+                        settings.mapSettings.showLabels ? 'bg-forest-600' : 'bg-muted-foreground'
+                      } flex items-center ${settings.mapSettings.showLabels ? 'justify-end' : 'justify-start'} p-1`}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <div className="w-5 h-5 bg-white rounded-full shadow-md"></div>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg border border-border hover:border-forest-300 transition">
+                    <div>
+                      <p className="font-medium">Show Grid Overlay</p>
+                      <p className="text-sm text-muted-foreground">Display coordinate grid on map</p>
+                    </div>
+                    <button
+                      onClick={() => handleNestedChange('mapSettings', 'showGrid', !settings.mapSettings.showGrid)}
+                      className={`relative w-14 h-8 rounded-full transition-all ${
+                        settings.mapSettings.showGrid ? 'bg-forest-600' : 'bg-muted-foreground'
+                      } flex items-center ${settings.mapSettings.showGrid ? 'justify-end' : 'justify-start'} p-1`}
+                    >
+                      <div className="w-5 h-5 bg-white rounded-full shadow-md"></div>
                     </button>
                   </div>
                 </div>
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Security Tip:</strong> Use a strong password with uppercase, lowercase, numbers, and symbols.
-                  </p>
+              </Card>
+            )}
+
+            {/* Appearance Settings */}
+            {activeSection === 'appearance' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  {settings.darkMode ? (
+                    <Moon className="h-5 w-5 text-forest-600" />
+                  ) : (
+                    <Sun className="h-5 w-5 text-forest-600" />
+                  )}
+                  <h2 className="text-xl font-semibold">Appearance</h2>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg border border-border hover:border-forest-300 transition">
+                  <div>
+                    <p className="font-medium">Dark Mode</p>
+                    <p className="text-sm text-muted-foreground">Enable dark theme for better nighttime viewing</p>
+                  </div>
+                  <button
+                    onClick={() => handleSettingChange('darkMode', !settings.darkMode)}
+                    className={`relative w-14 h-8 rounded-full transition-all ${
+                      settings.darkMode ? 'bg-forest-600' : 'bg-muted-foreground'
+                    } flex items-center ${settings.darkMode ? 'justify-end' : 'justify-start'} p-1`}
+                  >
+                    <div className="w-5 h-5 bg-white rounded-full shadow-md"></div>
+                  </button>
+                </div>
+              </Card>
+            )}
+
+            {/* Language Settings */}
+            {activeSection === 'language' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  <Globe className="h-5 w-5 text-forest-600" />
+                  <h2 className="text-xl font-semibold">Language Preference</h2>
                 </div>
                 <div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    <span className="text-sm">Enable two-factor authentication</span>
-                  </label>
+                  <label className="block text-sm font-medium mb-3">Select Your Language</label>
+                  <select
+                    value={settings.language}
+                    onChange={(e) => handleSettingChange('language', e.target.value)}
+                    className="w-full px-4 py-3 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 bg-background"
+                  >
+                    <optgroup label="International">
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                      <option value="pt">Portuguese</option>
+                    </optgroup>
+                    <optgroup label="Indian Languages">
+                      <option value="hi">हिन्दी (Hindi)</option>
+                      <option value="mr">मराठी (Marathi)</option>
+                      <option value="ta">தமிழ் (Tamil)</option>
+                      <option value="te">తెలుగు (Telugu)</option>
+                      <option value="od">ଓଡ଼ିଆ (Odia)</option>
+                      <option value="bh">भोजपुरी (Bhojpuri)</option>
+                    </optgroup>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-2">Current language: <strong>{settings.language.toUpperCase()}</strong></p>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            )}
+
+            {/* Privacy & Security */}
+            {activeSection === 'security' && (
+              <Card className="p-6 border-border">
+                <div className="flex items-center gap-3 mb-6">
+                  <Lock className="h-5 w-5 text-forest-600" />
+                  <h2 className="text-xl font-semibold">Privacy & Security</h2>
+                </div>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Change Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={settings.password}
+                        onChange={(e) => handleSettingChange('password', e.target.value)}
+                        placeholder="Enter new password"
+                        className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 pr-10"
+                      />
+                      <button
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                        title="Toggle password visibility"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Security Tip:</strong> Use a strong password with uppercase, lowercase, numbers, and symbols.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-muted rounded-lg border border-border hover:border-forest-300 transition cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      id="2fa" 
+                      checked={settings.twoFactorEnabled}
+                      onChange={(e) => handleSettingChange('twoFactorEnabled', e.target.checked)}
+                      className="w-4 h-4 accent-forest-600 cursor-pointer"
+                    />
+                    <label htmlFor="2fa" className="cursor-pointer flex-1">
+                      <p className="font-medium">Enable Two-Factor Authentication</p>
+                      <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
+                    </label>
+                    {settings.twoFactorEnabled && <Check className="h-4 w-4 text-green-600" />}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Save Button */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 sticky bottom-0 bg-background p-4 border-t border-border rounded-lg">
               <Button
                 onClick={handleSaveSettings}
-                className="flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white"
+                disabled={!hasChanges}
+                className={`flex items-center gap-2 text-white transition-all ${
+                  hasChanges 
+                    ? 'bg-forest-600 hover:bg-forest-700' 
+                    : 'bg-muted-foreground cursor-not-allowed'
+                }`}
               >
                 <Save className="h-4 w-4" />
-                Save All Settings
+                Save Settings
               </Button>
               <Button
                 variant="outline"
@@ -320,6 +433,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               >
                 Cancel
               </Button>
+              {hasChanges && <span className="text-xs text-orange-600 ml-auto self-center">*Unsaved changes</span>}
             </div>
           </div>
         </div>
